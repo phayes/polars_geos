@@ -1,0 +1,16 @@
+[package]
+name = "geopolars_geos"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+polars = "0.26"
+geopolars = { git = "https://github.com/geopolars/geopolars" }
+geos = { version = "8" }
+thiserror = "1"
+
+[dev-dependencies]
+polars_gdal = { git = "https://github.com/phayes/geopolars_gdal" }
+gdal = { version = "0.14.0", features = ["bindgen"] }
