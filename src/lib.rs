@@ -46,12 +46,25 @@ impl GeosGeoSeries for Series where Series: GeoSeries {
         let mut output_array = MutableBinaryArray::<i32>::with_capacity(self.len());    
         for geom in iter_geom(self) {
             let value = if other_prepared.intersects(&geom)? {
-                Some(geom.intersection(other)?)
+                let intersected = geom.intersection(other)?;
+                if intersected.is_empty()? {
+                    None
+                } else {
+                    Some(intersected)
+                }
             } else {
                 None
             };
-            let wkb = value.to_wkb()?;
-            output_array.push(Some(wkb));
+
+            match value {
+                Some(value) => {
+                    let wkb = value.to_wkb()?;
+                    output_array.push(Some(wkb));
+                },
+                None => {
+                    output_array.push::<&[u8]>(None);
+                }
+            };
         }
     
         let result: BinaryArray<i32> = output_array.into();
