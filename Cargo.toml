@@ -8,7 +8,7 @@ edition = "2021"
 [dependencies]
 polars = "0.26"
 geopolars = { git = "https://github.com/geopolars/geopolars" }
-geos = { version = "8" }
+geos = { version = "8", features = ["v3_8_0"] }
 thiserror = "1"
 
 [dev-dependencies]

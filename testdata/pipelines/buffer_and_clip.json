@@ -1,0 +1,24 @@
+{
+    "id": "buffer_and_clip",
+    "inputs": {
+        "input_1": {},
+        "input_2": {}
+    },
+    "outputs": ["clipped"],
+    "steps": [
+        {
+            "command": "buffer",
+            "inputs": ["input_1"],
+            "params": {
+                "distance": 1
+            },
+            "output": "buffered_input_1"
+        },
+        {
+            "command": "clip",
+            "inputs": ["buffered_input_1", "input_2"],
+            "params": {},
+            "output": "clipped"
+        }
+    ]
+}
