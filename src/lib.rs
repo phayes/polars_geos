@@ -8,13 +8,18 @@ pub use geos;
 use error::*;
 use geos::Geom;
 use geos::Geometry;
-use polars::export::arrow::array::{Array, BinaryArray, BooleanArray, MutableBinaryArray, MutableBooleanArray};
+use polars::export::arrow::array::{
+    Array, BinaryArray, BooleanArray, MutableBinaryArray, MutableBooleanArray, PrimitiveArray, MutablePrimitiveArray
+};
 use polars::prelude::Series;
 use std::convert::Into;
 
 pub type ArrayRef = Box<dyn Array>;
 
 pub trait GeosSeries {
+    /// For each geometry in the series, calculate the area
+    fn area(&self) -> Result<Series>;
+
     /// For each geometry in the series, check to see if it's valid. Returns a Boolean Series
     fn is_valid(&self) -> Result<Series>;
 
@@ -41,6 +46,26 @@ pub trait GeosSeries {
 }
 
 impl GeosSeries for Series {
+    fn area(&self) -> Result<Series> {
+        let mut result = MutablePrimitiveArray::<f64>::with_capacity(self.len());
+        for geom in iter_geom(self) {
+            match geom {
+                Some(geom) => {
+                    let area = geom.area()?;
+                    result.push(Some(area));
+                }
+                None => {
+                    result.push(None);
+                }
+            }
+        }
+
+        let result: PrimitiveArray<f64> = result.into();
+
+        let series = Series::try_from(("area", Box::new(result) as ArrayRef))?;
+        Ok(series)
+    }
+
     fn is_valid(&self) -> Result<Series> {
         let mut output_array = MutableBooleanArray::with_capacity(self.len());
         for geom in iter_geom(self) {
@@ -112,9 +137,7 @@ impl GeosSeries for Series {
                 let unioned = iter_geom(self)
                     .skip(base_geom.0 + 1)
                     .fold(init, |acc, geom| match geom {
-                        Some(geos_geom) => {
-                            acc.union(&geos_geom).unwrap()
-                        }
+                        Some(geos_geom) => acc.union(&geos_geom).unwrap(),
                         None => acc,
                     });
                 Ok(unioned)
@@ -140,7 +163,7 @@ impl GeosSeries for Series {
                     } else {
                         None
                     };
-        
+
                     match value {
                         Some(value) => {
                             let wkb = value.to_wkb()?;
@@ -150,7 +173,7 @@ impl GeosSeries for Series {
                             output_array.push::<&[u8]>(None);
                         }
                     };
-                },
+                }
                 None => {
                     output_array.push::<&[u8]>(None);
                 }
@@ -163,7 +186,6 @@ impl GeosSeries for Series {
         Ok(series)
     }
 
-
     fn intersection(&self, other: &Series) -> Result<Series> {
         let mut output_array = MutableBinaryArray::<i32>::with_capacity(self.len());
         for geoms in iter_geom(self).zip(iter_geom(other)) {
@@ -175,12 +197,11 @@ impl GeosSeries for Series {
                     let intersected = geoms.0.intersection(&geoms.1)?;
                     if intersected.is_empty()? {
                         output_array.push::<&[u8]>(None);
-                    }
-                    else {
+                    } else {
                         let wkb = intersected.to_wkb()?;
                         output_array.push(Some(wkb));
                     }
-                },
+                }
                 None => {
                     output_array.push::<&[u8]>(None);
                 }
@@ -203,11 +224,11 @@ impl GeosSeries for Series {
                     let value = if other_prepared.intersects(&geom)? {
                         geom.difference(other)?
                     } else {
-                       geom
+                        geom
                     };
                     let wkb = value.to_wkb()?;
                     output_array.push(Some(wkb));
-                },
+                }
                 None => {
                     output_array.push::<&[u8]>(None);
                 }
@@ -220,7 +241,6 @@ impl GeosSeries for Series {
         Ok(series)
     }
 
-
     fn difference(&self, other: &Series) -> Result<Series> {
         let mut output_array = MutableBinaryArray::<i32>::with_capacity(self.len());
         for geoms in iter_geom(self).zip(iter_geom(other)) {
@@ -229,11 +249,11 @@ impl GeosSeries for Series {
                     let difference = self_geom.difference(&other_geom)?;
                     let wkb = difference.to_wkb()?;
                     output_array.push(Some(wkb));
-                },
+                }
                 (Some(self_geom), None) => {
                     let wkb = self_geom.to_wkb()?;
                     output_array.push(Some(wkb));
-                },
+                }
                 (None, _) => {
                     output_array.push::<&[u8]>(None);
                 }
